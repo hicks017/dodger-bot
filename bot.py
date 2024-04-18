@@ -43,8 +43,8 @@ async def timedMessage():
     today_minus_10 = today - datetime.timedelta(days = 10)
 
     # Obtain date and team names for next Dodgers' game
-    next_game = next_game(dodgers)
-    next_game_data = boxscore_data(next_game)
+    next_game_id = next_game(dodgers)
+    next_game_data = boxscore_data(next_game_id)
     next_game_teams = sorted((next_game_data["teamInfo"]["away"]["teamName"], next_game_data["teamInfo"]["home"]["teamName"]))
     next_game_calendar_date = json_normalize(next_game_data["gameBoxInfo"])
     next_game_calendar_date = next_game_calendar_date[next_game_calendar_date["label"].str.endswith(("2024", "2025", "2026", "2027", "2028", "2029"))]["label"].values[0]
@@ -57,18 +57,20 @@ async def timedMessage():
         last_game_data = boxscore_data(last_game_id)
         last_game_teams = sorted((last_game_data["teamInfo"]["away"]["teamName"], last_game_data["teamInfo"]["home"]["teamName"]))
 
-        # Obtain batting stats for Dodgers hitters within last 10 days
-        batting_all = batting_stats_range(today_minus_10.strftime(format = "%Y-%m-%d"), today.strftime(format = "%Y-%m-%d"))
-        batting_dodgers = batting_all[(batting_all["Tm"] == "Los Angeles") & (batting_all["Lev"] == "Maj-NL")].sort_values(by = "BA", ascending = False)
+        # Compare opponents between next game and last game to identify new series
+        if next_game_teams != last_game_teams:
+            # Obtain batting stats for Dodgers hitters within last 10 days
+            batting_all = batting_stats_range(today_minus_10.strftime(format = "%Y-%m-%d"), today.strftime(format = "%Y-%m-%d"))
+            batting_dodgers = batting_all[(batting_all["Tm"] == "Los Angeles") & (batting_all["Lev"] == "Maj-NL")].sort_values(by = "BA", ascending = False)
 
-        # Calculate median at-bats
-        batting_abs_median = batting_dodgers["AB"].median()
+            # Calculate median at-bats
+            batting_abs_median = batting_dodgers["AB"].median()
 
-        # Compile top 3 Dodgers hitters with at least the median at-bats into a data frame
-        batting_dodgers_top_3 = batting_dodgers[batting_dodgers["AB"] >= batting_abs_median][["Name", "BA", "AB", "H", "2B", "3B", "HR"]].head(3).reset_index(drop=True)
-        batting_dodgers_top_3.index = batting_dodgers_top_3.index + 1
+            # Compile top 3 Dodgers hitters with at least the median at-bats into a data frame
+            batting_dodgers_top_3 = batting_dodgers[batting_dodgers["AB"] >= batting_abs_median][["Name", "BA", "AB", "H", "2B", "3B", "HR"]].head(3).reset_index(drop=True)
+            batting_dodgers_top_3.index = batting_dodgers_top_3.index + 1
 
-        # Send data frame to Discord inside a code block
-        await channel.send('Top 3 hitters for the last 10 days!\n' + '```' + batting_dodgers_top_3.to_string() + '```')
+            # Send data frame to Discord inside a code block
+            await channel.send('Top 3 hitters for the last 10 days!\n' + '```' + batting_dodgers_top_3.to_string() + '```')
 
 bot.run(token)
