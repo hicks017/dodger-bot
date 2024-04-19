@@ -52,6 +52,9 @@ async def timedMessage():
     # Compare today's date to date of next Dodgers' game
     if today.strftime(format = "%B %-d, %Y") == next_game_calendar_date:
 
+        # Grab opponent team name for next game
+        opponent = [team for team in next_game_teams if team != 'Dodgers']
+        
         # Obtain team names for previous Dodgers' game
         last_game_id = last_game(dodgers)
         last_game_data = boxscore_data(last_game_id)
@@ -71,6 +74,6 @@ async def timedMessage():
             batting_dodgers_top_3.index = batting_dodgers_top_3.index + 1
 
             # Send data frame to Discord inside a code block
-            await channel.send('Top 3 hitters for the last 10 days!\n' + '```' + batting_dodgers_top_3.to_string() + '```')
+            await channel.send('Wake up!! Dodgers vs. ' + ', '.join(opponent) + ' starts today!\n' + 'Top 3 hitters for the last 10 days are:\n' + '```' + batting_dodgers_top_3.to_string() + '```')
 
 bot.run(token)
