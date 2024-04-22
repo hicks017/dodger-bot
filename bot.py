@@ -149,6 +149,18 @@ async def message_standings():
             'NL West standings going into the weekend:\n' +
             '```' + standings_data.to_string() + '```'
         )
+    
+# Process bot commands
+@bot.event
+async def on_message(ctx, member: discord.Member = None):
+    
+    # Print messages to console
+    if ctx.author == bot.user:
+        return
+    print(f'{ctx.content}')
+
+    # Process commands
+    await bot.process_commands(ctx)
 
 # Define command resposne to check that bot is live
 @bot.command(name='status')
