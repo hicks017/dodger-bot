@@ -101,7 +101,7 @@ async def timedMessage():
             # the median at-bats into a data frame
             batting_dodgers_top_3 = (
                 batting_dodgers[batting_dodgers["AB"] >= batting_abs_median]
-                [["Name", "BA", "AB", "H", "2B", "3B", "HR"]]
+                [["Name", "BA", "HR"]]
                 .head(3)
                 .reset_index(drop=True)
             )
