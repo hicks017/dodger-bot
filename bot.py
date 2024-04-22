@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from statsapi import next_game, last_game, boxscore_data
 from pandas import json_normalize
-from pybaseball import batting_stats_range
+from pybaseball import batting_stats_range, standings
 
 bot = commands.Bot(command_prefix = "!", intents = discord.Intents.default())
 
@@ -30,10 +30,18 @@ async def on_ready():
     channel = bot.get_channel(channel_id)
     print(f'{bot.user} has connected to {channel}!')
 
-    # Define schedule for function timedMessage()
+    # Define schedule for function message_top_batters()
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
-        timedMessage,
+        message_top_batters,
+        'cron',
+        hour=9,
+        minute=0,
+        second=0,
+        timezone=pytz.timezone("US/Pacific")
+    )
+    scheduler.add_job(
+        message_standings,
         'cron',
         hour=9,
         minute=0,
@@ -42,8 +50,8 @@ async def on_ready():
     )
     scheduler.start()
 
-# Setup scheduled bot message
-async def timedMessage():
+# Setup scheduled bot message for recent top batters
+async def message_top_batters():
     
     # Obtain dates for current day and 10 days ago
     today = datetime.date.today()
@@ -115,5 +123,31 @@ async def timedMessage():
                 'Top 3 hitters for the last 10 days are:\n' +
                 '```' + batting_dodgers_top_3.to_string() + '```'
             )
+# Set up scheduled bot message for team standings
+async def message_standings():
+
+    # Check if today is Thursday (4)
+    today = datetime.date.today()
+    if today.isoweekday() == 4:
+
+        # Obtain standings for NL West
+        standings_data = standings()[5]
+        standings_data = standings_data.loc[:, ['Tm', 'W', 'L', 'GB']]
+
+        # Rename Tm values
+        mapping = {
+            "Los Angeles Dodgers": "Dodgers",
+            "San Diego Padres": "Padres",
+            "Arizona Diamondbacks": "Dbacks",
+            "San Francisco Giants": "Giants",
+            "Colorado Rockies": "Rockies"
+        }
+        standings_data['Tm'] = standings_data['Tm'].replace(mapping)
+
+        # Send data frame to Discord inside a code block
+        await channel.send(
+            'NL West standings going into the weekend:\n' +
+            '```' + standings_data.to_string() + '```'
+        )
 
 bot.run(token)
