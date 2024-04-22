@@ -150,4 +150,10 @@ async def message_standings():
             '```' + standings_data.to_string() + '```'
         )
 
+# Define command resposne to check that bot is live
+@bot.command(name='status')
+async def test(ctx):
+    await ctx.send('Bot is live!')
+
+# Run bot
 bot.run(token)
