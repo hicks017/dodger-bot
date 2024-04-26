@@ -9,7 +9,10 @@ from statsapi import next_game, last_game, boxscore_data
 from pandas import json_normalize
 from pybaseball import batting_stats_range, standings
 
-bot = commands.Bot(command_prefix = "!", intents = discord.Intents.default())
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Obtain environment variables defined in .env file
 load_dotenv()
@@ -149,22 +152,10 @@ async def message_standings():
             'NL West standings going into the weekend:\n' +
             '```' + standings_data.to_string() + '```'
         )
-    
-# Process bot commands
-@bot.event
-async def on_message(ctx, member: discord.Member = None):
-    
-    # Print messages to console
-    if ctx.author == bot.user:
-        return
-    print(f'{ctx.content}')
-
-    # Process commands
-    await bot.process_commands(ctx)
 
 # Define command resposne to check that bot is live
 @bot.command(name='status')
-async def test(ctx):
+async def _status_check(ctx):
     await ctx.send('Bot is live!')
 
 # Run bot
