@@ -3,4 +3,4 @@ Obtains information on the top 3 batters for the Dodgers in the last 10 days whe
 
 Ensure you have a `.env` file containing the following variables:
 - DISCORD_TOKEN:
-- CHANNEL_ID
+- CHANNEL_ID:
