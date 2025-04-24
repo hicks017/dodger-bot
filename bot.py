@@ -76,7 +76,7 @@ def get_today_opponent(team_id):
                 continue
 
             # Check if for multi-word teams in opponent team name
-            for indicator in MULTI_WORD_INDICATORS:
+            for indicator in multi_word_teams:
                 if indicator in opponent_full_name:
                     return indicator
             # Otherwise, return the last token (nickname)
@@ -294,8 +294,8 @@ def get_nlwest_standings():
 # Discord Bot Setup
 ####################################
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 intents.message_content = True
+bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
 @bot.event
 async def on_ready():
