@@ -256,6 +256,7 @@ def get_nlwest_standings():
 ####################################
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
+intents.message_content = True
 
 @bot.event
 async def on_ready():
