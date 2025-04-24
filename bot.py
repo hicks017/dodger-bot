@@ -43,6 +43,45 @@ def upcoming_regular_season_game_exists(team_id, max_days=30):
             if game.get("gameType") == "R":
                 return True
     return False
+  
+def get_today_opponent(team_id):
+    """
+    Retrieve the opponent for today's regular season game for the given team.
+    Returns the opponent's nickname (without the city name) if found; otherwise returns "Unknown".
+    """
+    # Define multi-word team names here
+    multi_word_teams = {"Red Sox", "White Sox", "Blue Jays"}
+    
+    today = datetime.date.today()
+    date_str = today.strftime('%Y-%m-%d')
+    schedule_url = f"{BASE_URL}/v1/schedule?teamId={team_id}&startDate={date_str}&endDate={date_str}&sportId=1"
+    response = requests.get(schedule_url)
+    if response.status_code != 200:
+        return "Unknown"
+    
+    data = response.json()
+    for date_obj in data.get("dates", []):
+        for game in date_obj.get("games", []):
+            if game.get("gameType") != "R":
+                continue
+            teams = game.get("teams", {})
+            home_team = teams.get("home", {}).get("team", {})
+            away_team = teams.get("away", {}).get("team", {})
+            
+            if home_team.get("id") == team_id:
+                opponent_full_name = away_team.get("name", "Unknown")
+            elif away_team.get("id") == team_id:
+                opponent_full_name = home_team.get("name", "Unknown")
+            else:
+                continue
+
+            # Check if for multi-word teams in opponent team name
+            for indicator in MULTI_WORD_INDICATORS:
+                if indicator in opponent_full_name:
+                    return indicator
+            # Otherwise, return the last token (nickname)
+            return opponent_full_name.split()[-1]
+    return "Unknown"
     
 def get_recent_games(team_id, days_delta=60, max_games=10):
     """
@@ -322,8 +361,9 @@ async def scheduled_stats():
         # Only post Dodgers batting stats if a new series has started today.
         if is_new_series_today(TEAM_ID):
             stats_message = get_dodgers_batting_stats()
+            opponent = get_today_opponent(TEAM_ID)  # Fetch the opponent
             message = (
-                f"Wake up!! New series has started, and here are the hot bats:\n```{stats_message}```"
+                f"Wake up!! New series vs. {opponent}. Here are the hot bats:\n```{stats_message}```"
             )
             await channel.send(message)
         else:
