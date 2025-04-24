@@ -177,18 +177,18 @@ def compute_batting_average(aggregated_stats):
 def format_batting_stats(players_list, top_n=3):
     """
     Formats the top N players (by batting average) as a text table.
-    Now includes RBI after home runs.
     """
     sorted_players = sorted(players_list, key=lambda x: x["avg"], reverse=True)
     lines = []
-    header = f"Top {top_n} Batters for the {TEAM_NAME} over the last 10 games:"
+    header = f"Top {top_n} Batters last 10 games:"
     lines.append(header)
-    lines.append("-" * 70)
-    lines.append(f"{'Player':30s} {'AVG':>6s} {'HR':>4s} {'RBI':>5s}")
-    lines.append("-" * 70)
+    lines.append("-" * len(header))
+    lines.append(f"{'Player':20s} {'AVG':>5s} {'HR':>3s} {'RBI':>3s}")
+    lines.append("-" * len(header))
     for player in sorted_players[:top_n]:
         avg_str = f"{player['avg']:.3f}"
-        line = f"{player['name']:30s} {avg_str:>6s} {player['homeRuns']:>4d} {player['rbi']:>5d}"
+        # Truncate player name if necessary for compact display
+        line = f"{player['name'][:20]:20s} {avg_str:>5s} {str(player['homeRuns']):>3s} {str(player['rbi']):>3s}"
         lines.append(line)
     return "\n".join(lines)
 
