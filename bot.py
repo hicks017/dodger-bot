@@ -238,16 +238,18 @@ def get_nlwest_standings():
         return "National League West standings not found."
     
     lines = []
-    header = f"{'Team':30s} {'W':>3s} {'L':>3s} {'Win%':>6s} {'GB':>5s}"
+    header = f"{'Team':13s} {'W':>3s} {'L':>3s} {'Pct':>5s} {'GB':>3s}"
     lines.append(header)
     lines.append("-" * len(header))
     for teamRec in nlwest_record.get("teamRecords", []):
         team_name = teamRec.get("team", {}).get("name", "Unknown")
+        # Extract just the nickname by using the last word.
+        team_nickname = team_name.split()[-1]
         wins = teamRec.get("wins", 0)
         losses = teamRec.get("losses", 0)
         win_pct = teamRec.get("winningPercentage", "N/A")
         games_back = teamRec.get("gamesBack", "0")
-        line = f"{team_name:30s} {str(wins):>3s} {str(losses):>3s} {win_pct:>6s} {str(games_back):>5s}"
+        line = f"{team_nickname:13s} {str(wins):>3s} {str(losses):>3s} {win_pct:>5s} {str(games_back):>3s}"
         lines.append(line)
     return "\n".join(lines)
 
