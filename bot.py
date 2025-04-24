@@ -180,12 +180,10 @@ def format_batting_stats(players_list, top_n=3):
     """
     sorted_players = sorted(players_list, key=lambda x: x["avg"], reverse=True)
     lines = []
-    header = f"Top {top_n} Batters last 10 games:"
-    subheader = f"{'Player':20s} {'AVG':>5s} {'HR':>3s} {'RBI':>3s}"
+    header = f"{'Player':20s} {'AVG':>5s} {'HR':>3s} {'RBI':>3s}"
+    lines.append("-" * len(header))
     lines.append(header)
-    lines.append("-" * len(subheader))
-    lines.append(subheader)
-    lines.append("-" * len(subheader))
+    lines.append("-" * len(header))
     for player in sorted_players[:top_n]:
         avg_str = f"{player['avg']:.3f}"
         # Truncate player name if necessary for compact display
@@ -240,6 +238,7 @@ def get_nlwest_standings():
     
     lines = []
     header = f"{'Team':13s} {'W':>3s} {'L':>3s} {'Pct':>5s} {'GB':>3s}"
+    lines.append("-" * len(header))
     lines.append(header)
     lines.append("-" * len(header))
     for teamRec in nlwest_record.get("teamRecords", []):
@@ -317,7 +316,7 @@ async def scheduled_stats():
     if now.weekday() == 4:  # Friday (Monday=0, Fri=4)
         standings_message = get_nlwest_standings()
         message = (
-            "**National League West Standings:**\n"
+            "NL West standings going into the weekend:\n"
             f"```{standings_message}```"
         )
         await channel.send(message)
@@ -326,8 +325,7 @@ async def scheduled_stats():
         if is_new_series_today(TEAM_ID):
             stats_message = get_dodgers_batting_stats()
             message = (
-                "New series has started! Here are the Dodgers' top batters from the last 10 games:\n"
-                f"```{stats_message}```"
+                f"Wake up!! New series has started, and here are the hot bats:\n```{stats_message}```"
             )
             await channel.send(message)
         else:
