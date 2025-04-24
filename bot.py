@@ -181,10 +181,11 @@ def format_batting_stats(players_list, top_n=3):
     sorted_players = sorted(players_list, key=lambda x: x["avg"], reverse=True)
     lines = []
     header = f"Top {top_n} Batters last 10 games:"
+    subheader = f"{'Player':20s} {'AVG':>5s} {'HR':>3s} {'RBI':>3s}"
     lines.append(header)
-    lines.append("-" * len(header))
-    lines.append(f"{'Player':20s} {'AVG':>5s} {'HR':>3s} {'RBI':>3s}")
-    lines.append("-" * len(header))
+    lines.append("-" * len(subheader))
+    lines.append(subheader)
+    lines.append("-" * len(subheader))
     for player in sorted_players[:top_n]:
         avg_str = f"{player['avg']:.3f}"
         # Truncate player name if necessary for compact display
