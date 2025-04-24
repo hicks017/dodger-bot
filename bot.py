@@ -181,7 +181,6 @@ def format_batting_stats(players_list, top_n=3):
     sorted_players = sorted(players_list, key=lambda x: x["avg"], reverse=True)
     lines = []
     header = f"{'Player':20s} {'AVG':>5s} {'HR':>3s} {'RBI':>3s}"
-    lines.append("-" * len(header))
     lines.append(header)
     lines.append("-" * len(header))
     for player in sorted_players[:top_n]:
@@ -238,7 +237,6 @@ def get_nlwest_standings():
     
     lines = []
     header = f"{'Team':13s} {'W':>3s} {'L':>3s} {'Pct':>5s} {'GB':>3s}"
-    lines.append("-" * len(header))
     lines.append(header)
     lines.append("-" * len(header))
     for teamRec in nlwest_record.get("teamRecords", []):
