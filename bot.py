@@ -435,7 +435,7 @@ async def scheduled_stats():
               stats_message = get_dodgers_batting_stats()
               opponent = get_today_opponent(TEAM_ID)  # Fetch the opponent
               message = (
-                  f"Wake up!! New series vs. {opponent}. Here are the hot bats:\n```{stats_message}```"
+                  f"Wake up!! New series vs. {opponent}. Here are the hottest bats from the last 10 games:\n```{stats_message}```"
               )
               await channel.send(message)
           else:
