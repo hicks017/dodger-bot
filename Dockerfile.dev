@@ -1,0 +1,28 @@
+# Dockerfile.dev: Development environment for dodger-bot
+FROM python:3.12-slim
+
+# Install system dependencies for development tools
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git \
+        vim \
+        curl \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the source code
+COPY . .
+
+# Set up a non-root user for development (optional, recommended by VS Code)
+RUN useradd -ms /bin/bash devuser
+USER devuser
+
+# Default command: start a shell
+CMD ["bash"]
