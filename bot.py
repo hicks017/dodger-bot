@@ -406,23 +406,21 @@ async def on_ready():
     if not scheduled_stats.is_running():
         scheduled_stats.start()
 
-@bot.command(name="avg")
-async def avg(ctx):
-    await ctx.send("Fetching Dodgers stats...")
-    stats_message = get_dodgers_batting_stats()
-    await ctx.send(f"```{stats_message}```")
-
-@bot.command(name="standings")
-async def standings(ctx):
-    await ctx.send("Fetching NL West standings...")
-    standings_message = get_nlwest_standings()
-    await ctx.send(f"```{standings_message}```")
-
 @bot.command(name="ping")
 async def ping(ctx):
     await ctx.send("Pong!")
 
 # --- Test commands for each function ---
+@bot.command(name="avg")
+async def avg(ctx):
+    stats_message = get_dodgers_batting_stats()
+    await ctx.send(f"```{stats_message}```")
+
+@bot.command(name="standings")
+async def standings(ctx):
+    standings_message = get_nlwest_standings()
+    await ctx.send(f"```{standings_message}```")
+
 @bot.command(name="is_new_series_today")
 async def cmd_is_new_series_today(ctx):
     result = is_new_series_today(TEAM_ID)
@@ -500,6 +498,29 @@ async def cmd_format_batting_stats(ctx):
 ####################################
 # Scheduled Task: Daily at 9:00 AM Pacific Time
 ####################################
+standings_messages = [
+    "Kick off the weekend with the NL West standings:",
+    "Weekend update! Here’s where the NL West sits heading into Friday:",
+    "Happy Friday! Check out the NL West standings as we roll into the weekend:",
+    "NL West snapshot for your weekend:",
+    "NL West rundown for Friday — see who’s leading as the weekend arrives:",
+    "It’s Friday! Here’s your NL West standings update:"
+]
+
+series_messages = [
+    "Wake up!! New series vs. {opponent}. Here are the hottest bats from the last 10 games:",
+    "Rise and shine! New series vs. {opponent}. Peep the top bats from the last 10 games:",
+    "Time for a matchup against {opponent}! Check out who’s been crushing it over the past 10 games:",
+    "We’re about to take on {opponent}! Feast your eyes on the hottest bats of the last 10 games:",
+    "Batter up! Series vs. {opponent} is here. These hitters have been locked-in for the last 10 games:",
+    "It’s go time! Series vs. {opponent} is starting. Check out who’s been on fire these last 10 games:",
+    "Let’s get it! New series against {opponent} — here’s a breakdown of our top sluggers of the last 10 games:",
+    "Matchup vs. {opponent} starts today! These hitters have been red-hot in the last 10 games:"
+]
+
+standings_message_idx = 0
+series_message_idx = 0
+
 @tasks.loop(time=datetime.time(hour=9, minute=0, second=0, tzinfo=ZoneInfo("America/Los_Angeles")))
 async def scheduled_stats():
     try:
@@ -520,21 +541,21 @@ async def scheduled_stats():
             return
 
         now = datetime.datetime.now(ZoneInfo("America/Los_Angeles"))
+        global standings_message_idx, series_message_idx
         if now.weekday() == 4:  # Friday (Monday=0, Fri=4)
             standings_message = get_nlwest_standings()
-            message = (
-                "NL West standings going into the weekend:\n"
-                f"```{standings_message}```"
-            )
+            intro = standings_messages[standings_message_idx]
+            standings_message_idx = (standings_message_idx + 1) % len(standings_messages)
+            message = f"{intro}\n```{standings_message}```"
             await channel.send(message)
         else:
             # Only post Dodgers batting stats if a new series has started today.
             if is_new_series_today(TEAM_ID):
                 stats_message = get_dodgers_batting_stats()
                 opponent = get_today_opponent(TEAM_ID)  # Fetch the opponent
-                message = (
-                    f"Wake up!! New series vs. {opponent}. Here are the hottest bats from the last 10 games:\n```{stats_message}```"
-                )
+                intro = series_messages[series_message_idx].format(opponent=opponent)
+                series_message_idx = (series_message_idx + 1) % len(series_messages)
+                message = f"{intro}\n```{stats_message}```"
                 await channel.send(message)
             else:
                 await admin_log("No new series started today.")
