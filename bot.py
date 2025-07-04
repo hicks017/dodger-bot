@@ -5,17 +5,41 @@ from zoneinfo import ZoneInfo  # Python 3.9+ for timezone support
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
+import asyncio
 
 # Load environment variables
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 BOT_PREFIX = os.getenv("BOT_PREFIX", "!")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID") # Optional
 
 # Constants for MLB/Dodgers
 TEAM_ID = 119  # Los Angeles Dodgers
 TEAM_NAME = "Los Angeles Dodgers"
 BASE_URL = "https://statsapi.mlb.com/api"
+
+# Optional admin channel for error and status notifications
+if ADMIN_CHANNEL_ID is not None:
+    try:
+        ADMIN_CHANNEL_ID = int(ADMIN_CHANNEL_ID)
+    except ValueError:
+        ADMIN_CHANNEL_ID = None
+async def notify_admin_channel(message):
+    """
+    Sends a message to the admin channel if ADMIN_CHANNEL_ID is set.
+    """
+    if ADMIN_CHANNEL_ID:
+        channel = bot.get_channel(ADMIN_CHANNEL_ID)
+        if channel:
+            try:
+                await channel.send(message)
+            except Exception as e:
+                print(f"[admin notify error] {e}")
+
+async def admin_log(message):
+    print(message)
+    await notify_admin_channel(message)
 
 def is_new_series_today(team_id=TEAM_ID):
     """
@@ -29,7 +53,7 @@ def is_new_series_today(team_id=TEAM_ID):
     schedule_url = f"{BASE_URL}/v1/schedule?teamId={team_id}&startDate={today_str}&endDate={today_str}&sportId=1"
     response = requests.get(schedule_url)
     if response.status_code != 200:
-        print("Error fetching schedule data for today.")
+        asyncio.create_task(admin_log("Error fetching schedule data for today."))
         return False
     data = response.json()
     if not data.get("dates"):
@@ -59,7 +83,7 @@ def is_new_series_today(team_id=TEAM_ID):
     past_schedule_url = f"{BASE_URL}/v1/schedule?teamId={team_id}&startDate={start_date_past}&endDate={yesterday}&sportId=1"
     response_past = requests.get(past_schedule_url)
     if response_past.status_code != 200:
-        print("Error fetching past schedule data.")
+        asyncio.create_task(admin_log("Error fetching past schedule data."))
         # In case of error, we assume it might be a new series.
         return True
     data_past = response_past.json()
@@ -101,7 +125,7 @@ def upcoming_regular_season_game_exists(team_id, max_days=30):
     schedule_url = f"{BASE_URL}/v1/schedule?teamId={team_id}&startDate={start_date_str}&endDate={end_date_str}&sportId=1"
     response = requests.get(schedule_url)
     if response.status_code != 200:
-        print("Error fetching upcoming schedule data.")
+        asyncio.create_task(admin_log("Error fetching upcoming schedule data."))
         return False
     
     data = response.json()
@@ -126,33 +150,38 @@ def get_today_opponent(team_id):
     today = datetime.date.today()
     date_str = today.strftime('%Y-%m-%d')
     schedule_url = f"{BASE_URL}/v1/schedule?teamId={team_id}&startDate={date_str}&endDate={date_str}&sportId=1"
-    response = requests.get(schedule_url)
-    if response.status_code != 200:
-        return "Unknown"
-    
-    data = response.json()
-    for date_obj in data.get("dates", []):
-        for game in date_obj.get("games", []):
-            if game.get("gameType") != "R":
-                continue
-            teams = game.get("teams", {})
-            home_team = teams.get("home", {}).get("team", {})
-            away_team = teams.get("away", {}).get("team", {})
-            
-            if home_team.get("id") == team_id:
-                opponent_full_name = away_team.get("name", "Unknown")
-            elif away_team.get("id") == team_id:
-                opponent_full_name = home_team.get("name", "Unknown")
-            else:
-                continue
+    try:
+        response = requests.get(schedule_url)
+        if response.status_code != 200:
+            asyncio.create_task(admin_log(f"Error fetching today's opponent: {response.status_code}"))
+            return "Unknown"
+        data = response.json()
+        for date_obj in data.get("dates", []):
+            for game in date_obj.get("games", []):
+                if game.get("gameType") != "R":
+                    continue
+                teams = game.get("teams", {})
+                home_team = teams.get("home", {}).get("team", {})
+                away_team = teams.get("away", {}).get("team", {})
+                
+                if home_team.get("id") == team_id:
+                    opponent_full_name = away_team.get("name", "Unknown")
+                elif away_team.get("id") == team_id:
+                    opponent_full_name = home_team.get("name", "Unknown")
+                else:
+                    continue
 
-            # Check if for multi-word teams in opponent team name
-            for indicator in multi_word_teams:
-                if indicator in opponent_full_name:
-                    return indicator
-            # Otherwise, return the last token (nickname)
-            return opponent_full_name.split()[-1]
-    return "Unknown"
+                # Check if for multi-word teams in opponent team name
+                for indicator in multi_word_teams:
+                    if indicator in opponent_full_name:
+                        return indicator
+                # Otherwise, return the last token (nickname)
+                return opponent_full_name.split()[-1]
+        asyncio.create_task(admin_log("No regular season game found for today when fetching opponent."))
+        return "Unknown"
+    except Exception as e:
+        asyncio.create_task(admin_log(f"Exception in get_today_opponent: {e}"))
+        return "Unknown"
     
 def get_recent_games(team_id, days_delta=60, max_games=10):
     """
@@ -207,7 +236,7 @@ def aggregate_player_stats(games, team_id):
         try:
             boxscore = get_boxscore(game_pk)
         except Exception as e:
-            print(e)
+            asyncio.create_task(admin_log(str(e)))
             continue
         
         teams_data = boxscore.get("teams", {})
@@ -307,11 +336,13 @@ def get_dodgers_batting_stats():
     try:
         games = get_recent_games(TEAM_ID, days_delta=60, max_games=10)
         if not games:
+            asyncio.create_task(admin_log("No completed games found in the specified date range."))
             return "No completed games found in the specified date range."
         
         aggregated_stats = aggregate_player_stats(games, TEAM_ID)
         players_list = compute_batting_average(aggregated_stats)
         if not players_list:
+            asyncio.create_task(admin_log("No batting stats available from the recent games."))
             return "No batting stats available from the recent games."
         
         return format_batting_stats(players_list, top_n=3)
@@ -368,36 +399,103 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
+# --- Discord Bot Events and Commands ---
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user.name} ({bot.user.id})")
+    await admin_log(f":white_check_mark: Dodger Bot is live! Logged in as {bot.user.name} ({bot.user.id})")
     if not scheduled_stats.is_running():
         scheduled_stats.start()
 
 @bot.command(name="avg")
 async def avg(ctx):
-    """
-    Manually triggered command that responds with the Dodgers batting stats.
-    """
     await ctx.send("Fetching Dodgers stats...")
     stats_message = get_dodgers_batting_stats()
     await ctx.send(f"```{stats_message}```")
 
 @bot.command(name="standings")
 async def standings(ctx):
-    """
-    Manually triggered command that responds with the NL West standings.
-    """
     await ctx.send("Fetching NL West standings...")
     standings_message = get_nlwest_standings()
     await ctx.send(f"```{standings_message}```")
 
 @bot.command(name="ping")
 async def ping(ctx):
-    """
-    Checks if the bot is active.
-    """
     await ctx.send("Pong!")
+
+# --- Test commands for each function ---
+@bot.command(name="is_new_series_today")
+async def cmd_is_new_series_today(ctx):
+    result = is_new_series_today(TEAM_ID)
+    await ctx.send(f"is_new_series_today: {result}")
+
+@bot.command(name="upcoming_regular_season_game_exists")
+async def cmd_upcoming_regular_season_game_exists(ctx):
+    result = upcoming_regular_season_game_exists(TEAM_ID)
+    await ctx.send(f"upcoming_regular_season_game_exists: {result}")
+
+@bot.command(name="get_today_opponent")
+async def cmd_get_today_opponent(ctx):
+    result = get_today_opponent(TEAM_ID)
+    await ctx.send(f"get_today_opponent: {result}")
+
+@bot.command(name="get_recent_games")
+async def cmd_get_recent_games(ctx):
+    try:
+        games = get_recent_games(TEAM_ID)
+        msg = f"Found {len(games)} recent games. First gamePk: {games[0]['gamePk'] if games else 'N/A'}"
+    except Exception as e:
+        msg = f"Error: {e}"
+    await ctx.send(msg)
+
+@bot.command(name="get_boxscore")
+async def cmd_get_boxscore(ctx, game_pk: int = None):
+    if game_pk is None:
+        # Try to get a recent game
+        try:
+            games = get_recent_games(TEAM_ID)
+            if not games:
+                await ctx.send("No recent games found.")
+                return
+            game_pk = games[0]["gamePk"]
+        except Exception as e:
+            await ctx.send(f"Error: {e}")
+            return
+    try:
+        boxscore = get_boxscore(game_pk)
+        summary = f"Boxscore for gamePk {game_pk}: keys: {list(boxscore.keys())}"
+    except Exception as e:
+        summary = f"Error: {e}"
+    await ctx.send(summary)
+
+@bot.command(name="aggregate_player_stats")
+async def cmd_aggregate_player_stats(ctx):
+    try:
+        games = get_recent_games(TEAM_ID)
+        stats = aggregate_player_stats(games, TEAM_ID)
+        await ctx.send(f"Aggregated stats for {len(stats)} players.")
+    except Exception as e:
+        await ctx.send(f"Error: {e}")
+
+@bot.command(name="compute_batting_average")
+async def cmd_compute_batting_average(ctx):
+    try:
+        games = get_recent_games(TEAM_ID)
+        stats = aggregate_player_stats(games, TEAM_ID)
+        players = compute_batting_average(stats)
+        await ctx.send(f"Players with computed avg: {len(players)}")
+    except Exception as e:
+        await ctx.send(f"Error: {e}")
+
+@bot.command(name="format_batting_stats")
+async def cmd_format_batting_stats(ctx):
+    try:
+        games = get_recent_games(TEAM_ID)
+        stats = aggregate_player_stats(games, TEAM_ID)
+        players = compute_batting_average(stats)
+        formatted = format_batting_stats(players, top_n=3)
+        await ctx.send(f"```{formatted}```")
+    except Exception as e:
+        await ctx.send(f"Error: {e}")
 
 ####################################
 # Scheduled Task: Daily at 9:00 AM Pacific Time
@@ -405,43 +503,44 @@ async def ping(ctx):
 @tasks.loop(time=datetime.time(hour=9, minute=0, second=0, tzinfo=ZoneInfo("America/Los_Angeles")))
 async def scheduled_stats():
     try:
-      """
-      Runs every day at 9:00 AM Pacific Time.
-        - On Friday, it posts the current NL West standings.
-        - On other days, if a new series starts today, it posts Dodgers batting stats.
-      This task only runs if at least one Regular season game is scheduled within the next 30 days.
-      """
-      # Check if there is an upcoming Regular season game for the Dodgers.
-      if not upcoming_regular_season_game_exists(TEAM_ID):
-          print("No upcoming Regular season game for the Dodgers within the next 30 days. Skipping scheduled task.")
-          return
+        """
+        Runs every day at 9:00 AM Pacific Time.
+          - On Friday, it posts the current NL West standings.
+          - On other days, if a new series starts today, it posts Dodgers batting stats.
+        This task only runs if at least one Regular season game is scheduled within the next 30 days.
+        """
+        # Check if there is an upcoming Regular season game for the Dodgers.
+        if not upcoming_regular_season_game_exists(TEAM_ID):
+            await admin_log("No upcoming Regular season game for the Dodgers within the next 30 days. Skipping scheduled task.")
+            return
 
-      channel = bot.get_channel(CHANNEL_ID)
-      if channel is None:
-          print(f"Channel with ID {CHANNEL_ID} not found.")
-          return
+        channel = bot.get_channel(CHANNEL_ID)
+        if channel is None:
+            await admin_log(f"Channel with ID {CHANNEL_ID} not found.")
+            return
 
-      now = datetime.datetime.now(ZoneInfo("America/Los_Angeles"))
-      if now.weekday() == 4:  # Friday (Monday=0, Fri=4)
-          standings_message = get_nlwest_standings()
-          message = (
-              "NL West standings going into the weekend:\n"
-              f"```{standings_message}```"
-          )
-          await channel.send(message)
-      else:
-          # Only post Dodgers batting stats if a new series has started today.
-          if is_new_series_today(TEAM_ID):
-              stats_message = get_dodgers_batting_stats()
-              opponent = get_today_opponent(TEAM_ID)  # Fetch the opponent
-              message = (
-                  f"Wake up!! New series vs. {opponent}. Here are the hottest bats from the last 10 games:\n```{stats_message}```"
-              )
-              await channel.send(message)
-          else:
-              print("No new series started today.")
+        now = datetime.datetime.now(ZoneInfo("America/Los_Angeles"))
+        if now.weekday() == 4:  # Friday (Monday=0, Fri=4)
+            standings_message = get_nlwest_standings()
+            message = (
+                "NL West standings going into the weekend:\n"
+                f"```{standings_message}```"
+            )
+            await channel.send(message)
+        else:
+            # Only post Dodgers batting stats if a new series has started today.
+            if is_new_series_today(TEAM_ID):
+                stats_message = get_dodgers_batting_stats()
+                opponent = get_today_opponent(TEAM_ID)  # Fetch the opponent
+                message = (
+                    f"Wake up!! New series vs. {opponent}. Here are the hottest bats from the last 10 games:\n```{stats_message}```"
+                )
+                await channel.send(message)
+            else:
+                await admin_log("No new series started today.")
     except Exception as e:
-      print(f"[scheduled_stats] error: {e}")
+        print(f"[scheduled_stats] error: {e}")
+        await notify_admin_channel(f":warning: [scheduled_stats] error: {e}")
       
 @scheduled_stats.before_loop
 async def before_scheduled_stats():
@@ -450,5 +549,6 @@ async def before_scheduled_stats():
 @scheduled_stats.error
 async def scheduled_stats_error(exc, _task):
     print(f"[scheduled_stats] crashed: {exc}")
+    await notify_admin_channel(f":warning: [scheduled_stats] crashed: {exc}")
 
 bot.run(DISCORD_TOKEN)
