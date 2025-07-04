@@ -1,3 +1,4 @@
+<img src="https://github.com/user-attachments/assets/2d4ff480-3db1-4dd5-8aef-16be6e827c37" alt="Preview of dodger-bot in action" style="width:35%; height:auto;">
 
 # dodger-bot
 Obtains information on the top 3 batters for the Dodgers in the last 10 days when a new series begins.
