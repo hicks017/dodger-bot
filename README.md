@@ -18,6 +18,7 @@ To build and run the production container:
 docker build -t dodger-bot .
 docker run --env-file .env dodger-bot
 ```
+The Docker container automatically runs `python bot.py` to begin operating the bot without any further commands.
 
 ---
 
