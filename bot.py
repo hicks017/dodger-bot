@@ -558,18 +558,16 @@ async def scheduled_stats():
                 message = f"{intro}\n```{stats_message}```"
                 await channel.send(message)
             else:
-                await admin_log("No new series started today.")
+                print("No new series started today.")
     except Exception as e:
-        print(f"[scheduled_stats] error: {e}")
-        await notify_admin_channel(f":warning: [scheduled_stats] error: {e}")
-      
+        await admin_log(f":warning: [scheduled_stats] error: {e}")
+
 @scheduled_stats.before_loop
 async def before_scheduled_stats():
     await bot.wait_until_ready()
 
 @scheduled_stats.error
 async def scheduled_stats_error(exc, _task):
-    print(f"[scheduled_stats] crashed: {exc}")
-    await notify_admin_channel(f":warning: [scheduled_stats] crashed: {exc}")
+    await admin_log(f":warning: [scheduled_stats] crashed: {exc}")
 
 bot.run(DISCORD_TOKEN)
